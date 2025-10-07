@@ -13,11 +13,21 @@
   <script src="static/js/chessboard-1.0.0.js"></script>
 
   <style>
-    #board { width: 500px; margin: auto; }
+    #board { width: 400px; margin: auto; }
     .btn { margin: 2px; }
     .white-1e1d7 { background-color: #eeeed2 !important; }
     .black-3c85d { background-color: #769656 !important; }
     tr.table-active td { background-color: #b8daff !important; }
+    .square-in-check {
+  box-shadow: inset 0 0 0 4px red !important;
+}
+  .piece-417db {
+    z-index: 2000 !important; /* asegura que las piezas se vean encima */
+    cursor: grab;
+  }
+  .piece-417db.dragging {
+    opacity: 0.8;
+  }
   </style>
 </head>
 <body class="bg-light">
@@ -100,8 +110,9 @@
       <div class="modal-body text-center">
         <div id="board"></div>
         <p class="mt-3">
-          <strong>Mueven las:</strong> <span id="sideToMove"></span> |
-          <strong>MateIn:</strong> <span id="mateIn"></span>
+          <strong>Mate en:</strong> <span id="mateIn"></span> |
+          <strong>Ganan:</strong> <span id="gananId"></span> |
+          <strong>Mueven:</strong> <span id="sideToMove"></span>  
         </p>
         <button class="btn btn-sm btn-outline-primary" id="toggleMoves">👁️ Mostrar movimientos</button>
         <p class="mt-3 d-none" id="movesContainer">
@@ -118,6 +129,9 @@ let filteredData = [];
 let currentPage = 1;
 let rowsPerPage = 10;
 let highlightedRow = null;
+// Nuevas variables globales:
+let game = null;
+let board = null;
 
 async function loadData() {
   try {
@@ -129,6 +143,23 @@ async function loadData() {
     console.error("Error cargando JSON:", e);
     document.getElementById("pageInfo").textContent = "Error al cargar los datos.";
   }
+}
+function showSuccessMessage(msg) {
+  const alert = document.createElement("div");
+  alert.className = "alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3";
+  alert.style.zIndex = "3000";
+  alert.textContent = msg;
+  document.body.appendChild(alert);
+  setTimeout(() => alert.remove(), 1500);
+}
+
+function showErrorMessage(msg) {
+  const alert = document.createElement("div");
+  alert.className = "alert alert-danger position-fixed top-0 start-50 translate-middle-x mt-3";
+  alert.style.zIndex = "3000";
+  alert.textContent = msg;
+  document.body.appendChild(alert);
+  setTimeout(() => alert.remove(), 2000);
 }
 
 function applyFilters() {
@@ -169,7 +200,7 @@ function renderTable() {
       <td>${row.FEN}</td>
       <td>${row.MateIn}</td>
       <td>${row.Winner}</td>
-      <td><button class="btn btn-sm btn-primary" onclick="showFen('${row.FEN}', '${row.Moves.replace(/'/g, "\\'")}', '${row.MateIn}', this)">👁️</button></td>
+      <td><button class="btn btn-sm btn-primary" onclick="showFen('${row.Winner}', '${row.FEN}', '${row.Moves.replace(/'/g, "\\'")}', '${row.MateIn}', this)">👁️</button></td>
     `;
     table.appendChild(tr);
   });
@@ -181,21 +212,99 @@ function renderTable() {
     ? `Mostrando ${start + 1}-${Math.min(end, total)} de ${total} resultados (página ${currentPage} de ${totalPages})`
     : "Sin resultados";
 }
+    function highlightKingInCheck() {
+      // Elimina cualquier resaltado anterior
+      document.querySelectorAll('.square-55d63').forEach(sq => {
+        sq.classList.remove('square-in-check');
+      });
 
-function showFen(fen, moves, mateIn, btn) {
+      if (game && game.in_check()) {
+        const fenParts = game.fen().split(' ');
+        const turn = fenParts[1]; // 'w' o 'b'
+        const boardObj = game.board();
+        let kingSquare = null;
+
+        for (let row = 0; row < 8; row++) {
+          for (let col = 0; col < 8; col++) {
+            const piece = boardObj[row][col];
+            if (piece && piece.type === 'k' && piece.color === turn) {
+              // fila 0 es 8, columna 0 es 'a'
+              const file = String.fromCharCode('a'.charCodeAt(0) + col);
+              const rank = (8 - row).toString();
+              kingSquare = file + rank;
+            }
+          }
+        }
+
+        if (kingSquare) {
+          const squareEl = document.querySelector(`.square-${kingSquare}`);
+          if (squareEl) {
+            squareEl.classList.add('square-in-check');
+          }
+        }
+      }
+    }
+function showFen(winnerColor, fen, moves, mateIn, btn) {
   if (highlightedRow) highlightedRow.classList.remove("table-active");
   highlightedRow = btn.closest("tr");
   highlightedRow.classList.add("table-active");
 
-  let board = Chessboard('board', fen, {
-    pieceTheme: 'static/img/chesspieces/wikipedia/{piece}.png',
-    draggable: false
+  // Variables globales
+  game = new Chess(fen);
+  const moveList = moves.trim().split(/\s+/); // ej: ["a5b5", "a8a7", ...]
+  let moveIndex = 0;
+
+  // Función auxiliar para reiniciar puzzle
+  function resetPuzzle() {
+    game = new Chess(fen);
+    moveIndex = 0;
+    board.position(fen);
+    highlightKingInCheck(fen);
+    showErrorMessage("❌ Incorrecto. Puzzle reiniciado.");
+  }
+
+  board = Chessboard('board', {
+    position: fen,
+    pieceTheme: 'img/chesspieces/wikipedia/{piece}.png',
+    draggable: true,
+    onDragStart: (source, piece) => {
+      if (game.game_over() ||
+          (game.turn() === 'w' && piece.startsWith('b')) ||
+          (game.turn() === 'b' && piece.startsWith('w'))) {
+        return false;
+      }
+    },
+    onDrop: (source, target) => {
+      const expected = moveList[moveIndex];
+      const userMove = source + target;
+
+      if (userMove === expected) {
+        const move = game.move({ from: source, to: target, promotion: 'q' });
+        moveIndex++;
+        highlightKingInCheck(game.fen());
+        showSuccessMessage(`✅ Movimiento ${moveIndex}/${moveList.length}`);
+
+        if (moveIndex >= moveList.length) {
+          setTimeout(() => showSuccessMessage("🎉 ¡Puzzle completado!"), 400);
+        }
+      } else {
+        // Reinicia si falla
+        setTimeout(resetPuzzle, 300);
+        return 'snapback';
+      }
+    },
+    onSnapEnd: () => board.position(game.fen())
   });
 
+  highlightKingInCheck(fen);
+
+  // Mostrar info del modal
   let sideToMove = fen.split(" ")[1] === "w" ? "Blancas" : "Negras";
+  let textoGanan  = (winnerColor === "Black" ? "Negras" : "Blancas");
   document.getElementById("sideToMove").textContent = sideToMove;
   document.getElementById("mateIn").textContent = mateIn;
   document.getElementById("moves").textContent = moves;
+  document.getElementById("gananId").textContent = textoGanan;
   document.getElementById("movesContainer").classList.add("d-none");
 
   let toggleBtn = document.getElementById("toggleMoves");
@@ -211,7 +320,6 @@ function showFen(fen, moves, mateIn, btn) {
   let modal = new bootstrap.Modal(document.getElementById("fenModal"));
   modal.show();
 }
-
 document.getElementById("prevPage").addEventListener("click", e => {
   e.preventDefault();
   if (currentPage > 1) {
