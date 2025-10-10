@@ -13,7 +13,60 @@
   <script src="static/js/chessboard-1.0.0.js"></script>
 
   <style>
-    #board { width: 400px; margin: auto; }
+ /* Tablero adaptable */
+#board {
+  width: min(90vw, 400px);
+  max-width: 400px;
+}
+
+/* En pantallas grandes: tablero y barra al lado */
+@media (min-width: 768px) {
+  .board-wrapper {
+    flex-direction: row !important;
+  }
+
+  .progress-container {
+    height: 400px !important;
+    width: 25px !important;
+  }
+
+  .progress-container .progress {
+    rotate: 180deg;
+    width: 100%;
+    height: 100%;
+  }
+
+  .progress-container .progress-bar {
+    width: 100%;
+    height: 0%;
+    transition: height 0.3s;
+  }
+}
+
+/* En pantallas pequeñas: tablero arriba, barra horizontal abajo */
+@media (max-width: 767px) {
+  .board-wrapper {
+    flex-direction: column !important;
+  }
+
+  .progress-container {
+    height: 25px !important;
+    width: 90% !important;
+    rotate: 0deg !important;
+  }
+
+  .progress-container .progress {
+    rotate: 0deg !important;
+    width: 100%;
+    height: 100%;
+  }
+
+  .progress-container .progress-bar {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s;
+  }
+}
     .btn { margin: 2px; }
     .white-1e1d7 { background-color: #eeeed2 !important; }
     .black-3c85d { background-color: #769656 !important; }
@@ -108,12 +161,12 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body text-center">
-        <div class="d-flex justify-content-center align-items-start gap-2 mt-3">
+        <div class="board-wrapper d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-3">
           <!-- Tablero -->
-          <div id="board" style="width: 400px;"></div>
+          <div id="board" class="flex-shrink-0"></div>
 
-          <!-- Barra de progreso al lado -->
-          <div class="progress-container d-flex align-items-end" style="height: 400px; width: 25px;">
+          <!-- Barra de progreso -->
+          <div class="progress-container d-flex align-items-end mt-3 mt-md-0" style="height: 100%; max-height: 400px; width: 25px;">
             <div class="progress" style="width: 100%; height: 100%; rotate: 180deg;">
               <div id="progressBar" class="progress-bar bg-success" role="progressbar"
                 style="height: 0%; width: 100%; transition: height 0.3s;"></div>
@@ -272,6 +325,18 @@ function showFen(winnerColor, fen, moves, mateIn, btn) {
     showErrorMessage("❌ Incorrecto. Puzzle reiniciado.");
   }
 
+  // Reiniciar barra de progreso cada vez que se abre un nuevo puzzle
+const progressBar = document.getElementById("progressBar");
+if (progressBar) {
+  const isMobile = window.innerWidth < 768;
+  if (isMobile) {
+    progressBar.style.width = "0%";
+    progressBar.style.height = "100%";
+  } else {
+    progressBar.style.height = "0%";
+    progressBar.style.width = "100%";
+  }
+}
   board = Chessboard('board', {
     position: fen,
     pieceTheme: 'img/chesspieces/wikipedia/{piece}.png',
@@ -284,33 +349,44 @@ function showFen(winnerColor, fen, moves, mateIn, btn) {
       }
     },
     onDrop: (source, target) => {
-  const expected = moveList[moveIndex];
+   const expected = moveList[moveIndex];
   const userMove = source + target;
   const progressBar = document.getElementById("progressBar");
 
+  const updateProgress = (percent) => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      progressBar.style.width = percent + "%";
+      progressBar.style.height = "100%";
+    } else {
+      progressBar.style.height = percent + "%";
+      progressBar.style.width = "100%";
+    }
+  };
+
+  const resetProgress = () => updateProgress(0);
+
   if (userMove === expected) {
-        const move = game.move({ from: source, to: target, promotion: 'q' });
-        moveIndex++;
-        highlightKingInCheck(game.fen());
+    const move = game.move({ from: source, to: target, promotion: 'q' });
+    moveIndex++;
+    highlightKingInCheck(game.fen());
 
-        // Actualiza la barra
-        const progressPercent = Math.round((moveIndex / moveList.length) * 100);
-        progressBar.style.height = progressPercent + "%";
+    const progressPercent = Math.round((moveIndex / moveList.length) * 100);
+    updateProgress(progressPercent);
 
-        if (moveIndex >= moveList.length) {
-          setTimeout(() => {
-            progressBar.style.height = "100%";
-            showSuccessMessage("🎉 ¡Puzzle completado!");
-          }, 300);
-        }
-      } else {
-        // Reinicia si falla
-        setTimeout(() => {
-          resetPuzzle();
-          progressBar.style.height = "0%";
-        }, 300);
-        return 'snapback';
-      }
+    if (moveIndex >= moveList.length) {
+      setTimeout(() => {
+        updateProgress(100);
+        showSuccessMessage("🎉 ¡Puzzle completado!");
+      }, 300);
+    }
+  } else {
+    setTimeout(() => {
+      resetPuzzle();
+      resetProgress();
+    }, 300);
+    return 'snapback';
+  }
     },
     onSnapEnd: () => board.position(game.fen())
   });
