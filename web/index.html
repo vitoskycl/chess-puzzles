@@ -33,20 +33,20 @@
 <body class="bg-light">
 
 <div class="container py-4">
-  <h1 class="mb-4">FEN Puzzle Database</h1>
+  <h1 class="mb-4">Selecciona el Puzzle y trata de resolverlo</h1>
 
   <!-- Filtros -->
   <div class="row mb-3">
     <div class="col-md-3">
-      <label for="winnerFilter" class="form-label">Winner</label>
+      <label for="winnerFilter" class="form-label">Ganador</label>
       <select id="winnerFilter" class="form-select">
         <option value="">Todos</option>
-        <option value="White">White</option>
-        <option value="Black">Black</option>
+        <option value="White">Blancas</option>
+        <option value="Black">Negras</option>
       </select>
     </div>
     <div class="col-md-3">
-      <label for="mateFilter" class="form-label">MateIn</label>
+      <label for="mateFilter" class="form-label">Mate En</label>
       <select id="mateFilter" class="form-select">
         <option value="">Todos</option>
         <option value="1">1</option>
@@ -69,8 +69,8 @@
       <tr>
         <th>#</th>
         <th>FEN</th>
-        <th>MateIn</th>
-        <th>Winner</th>
+        <th>MeteEn</th>
+        <th>Ganador</th>
         <th>Ver</th>
       </tr>
     </thead>
@@ -108,11 +108,20 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body text-center">
-        <div id="board"></div>
+        <div class="d-flex justify-content-center align-items-start gap-2 mt-3">
+          <!-- Tablero -->
+          <div id="board" style="width: 400px;"></div>
+
+          <!-- Barra de progreso al lado -->
+          <div class="progress-container d-flex align-items-end" style="height: 400px; width: 25px;">
+            <div class="progress" style="width: 100%; height: 100%; rotate: 180deg;">
+              <div id="progressBar" class="progress-bar bg-success" role="progressbar"
+                style="height: 0%; width: 100%; transition: height 0.3s;"></div>
+            </div>
+          </div>
+        </div>
         <p class="mt-3">
-          <strong>Mate en:</strong> <span id="mateIn"></span> |
-          <strong>Ganan:</strong> <span id="gananId"></span> |
-          <strong>Mueven:</strong> <span id="sideToMove"></span>  
+          Mate en&nbsp;<strong><span id="mateIn"></span></strong>,&nbsp;mueven las&nbsp;<strong><span id="sideToMove"></span></strong>,&nbsp;pero ganan las&nbsp;<strong><span id="gananId"></span></strong>   
         </p>
         <button class="btn btn-sm btn-outline-primary" id="toggleMoves">👁️ Mostrar movimientos</button>
         <p class="mt-3 d-none" id="movesContainer">
@@ -199,7 +208,7 @@ function renderTable() {
       <td>${start + index + 1}</td>
       <td>${row.FEN}</td>
       <td>${row.MateIn}</td>
-      <td>${row.Winner}</td>
+      <td>${(row.Winner === 'Black' ? 'Negras':'Blancas')}</td>
       <td><button class="btn btn-sm btn-primary" onclick="showFen('${row.Winner}', '${row.FEN}', '${row.Moves.replace(/'/g, "\\'")}', '${row.MateIn}', this)">👁️</button></td>
     `;
     table.appendChild(tr);
@@ -275,21 +284,31 @@ function showFen(winnerColor, fen, moves, mateIn, btn) {
       }
     },
     onDrop: (source, target) => {
-      const expected = moveList[moveIndex];
-      const userMove = source + target;
+  const expected = moveList[moveIndex];
+  const userMove = source + target;
+  const progressBar = document.getElementById("progressBar");
 
-      if (userMove === expected) {
+  if (userMove === expected) {
         const move = game.move({ from: source, to: target, promotion: 'q' });
         moveIndex++;
         highlightKingInCheck(game.fen());
-        showSuccessMessage(`✅ Movimiento ${moveIndex}/${moveList.length}`);
+
+        // Actualiza la barra
+        const progressPercent = Math.round((moveIndex / moveList.length) * 100);
+        progressBar.style.height = progressPercent + "%";
 
         if (moveIndex >= moveList.length) {
-          setTimeout(() => showSuccessMessage("🎉 ¡Puzzle completado!"), 400);
+          setTimeout(() => {
+            progressBar.style.height = "100%";
+            showSuccessMessage("🎉 ¡Puzzle completado!");
+          }, 300);
         }
       } else {
         // Reinicia si falla
-        setTimeout(resetPuzzle, 300);
+        setTimeout(() => {
+          resetPuzzle();
+          progressBar.style.height = "0%";
+        }, 300);
         return 'snapback';
       }
     },

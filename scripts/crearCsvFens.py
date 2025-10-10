@@ -3,15 +3,15 @@ import chess
 import chess.engine
 
 # Rutas
-csv_input = "/home/vmorales/Descargas/lichess_db_puzzle.csv"
+csv_input = "/home/vmorales/Develop/labs/ChatGPT/lichess_db_puzzle.csv"
 csv_output = "/home/vmorales/Develop/labs/ChatGPT/chess-puzzles/data/fens_mate_verificados.csv"
 STOCKFISH_PATH = "/home/vmorales/Develop/engines/stockfish_14.1/stockfish_14.1_linux_x64"  # Ajusta según tu instalación
 
 # Configuración
 mate_n_max = 6          # opcional, para limitar búsqueda a mates hasta N movimientos
 time_per_position = 0.5 # segundos que Stockfish analizará cada posición
-start_row = 300001           # fila inicial (1 = primera fila de datos, sin contar cabecera)
-end_row   = 328404        # fila final
+start_row = 560001           # fila inicial (1 = primera fila de datos, sin contar cabecera)
+end_row   = 570000        # fila final
 
 engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
 
@@ -46,16 +46,17 @@ with open(csv_input, newline="", encoding="utf-8") as f_in, \
         board = chess.Board(fen)
         info = engine.analyse(board, chess.engine.Limit(time=time_per_position))
         score = info["score"].white()
+        mate_in_puzzle = len(moves.split()) // 2
 
         if score.is_mate():
             mate_in = score.mate()  # positivo = blancas ganan, negativo = negras ganan
-            if abs(mate_in)>1 and abs(mate_in) <= mate_n_max:
+            if mate_in_puzzle > 1 and mate_in_puzzle <= mate_n_max:
                 winner = "White" if mate_in > 0 else "Black"
-                writer.writerow([fen, moves, abs(mate_in), winner])
+                writer.writerow([fen, moves, mate_in_puzzle, winner])
                 count_mates += 1
 
         count_total += 1
-        if count_total % 100 == 0:
+        if count_total % 500 == 0:
             print(f"Filas leídas {count_filas}, Filas Analizadas {count_total} posiciones en este bloque, Mates encontrados: {count_mates}")
 
 engine.quit()
