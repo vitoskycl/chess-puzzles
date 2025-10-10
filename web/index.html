@@ -439,5 +439,45 @@ document.getElementById("rowsPerPageSelect").addEventListener("change", e => {
 
 loadData();
 </script>
+<script>
+(function() {
+  const version = new Date().getTime();
+
+  // Cache buster para <link> y <script> ya en el DOM
+  document.querySelectorAll('link[rel="stylesheet"], script[src]').forEach(el => {
+    const attr = el.tagName === 'LINK' ? 'href' : 'src';
+    let url = el.getAttribute(attr);
+    if (url && !url.includes('?v=')) {
+      el.setAttribute(attr, url + (url.includes('?') ? '&' : '?') + 'v=' + version);
+    }
+  });
+
+  // Intercepta fetch() para archivos .json
+  const origFetch = window.fetch;
+  window.fetch = function(resource, init) {
+    if (typeof resource === "string" && resource.match(/\.(json|js)$/i) && !resource.includes("?v=")) {
+      resource += (resource.includes("?") ? "&" : "?") + "v=" + version;
+    }
+    return origFetch(resource, init);
+  };
+
+  // Opcional: intercepta creación de nuevos <script> dinámicos
+  const origCreateElement = document.createElement.bind(document);
+  document.createElement = function(tagName) {
+    const el = origCreateElement(tagName);
+    if (tagName.toLowerCase() === 'script') {
+      const origSetAttribute = el.setAttribute.bind(el);
+      el.setAttribute = function(name, value) {
+        if (name === 'src' && value && value.match(/\.js$/i) && !value.includes('?v=')) {
+          value += (value.includes("?") ? "&" : "?") + "v=" + version;
+        }
+        return origSetAttribute(name, value);
+      };
+    }
+    return el;
+  };
+
+})();
+</script>
 </body>
 </html>
