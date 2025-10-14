@@ -10,8 +10,8 @@ STOCKFISH_PATH = "/home/vmorales/Develop/engines/stockfish_14.1/stockfish_14.1_l
 # Configuración
 mate_n_max = 6          # opcional, para limitar búsqueda a mates hasta N movimientos
 time_per_position = 0.5 # segundos que Stockfish analizará cada posición
-start_row = 560001           # fila inicial (1 = primera fila de datos, sin contar cabecera)
-end_row   = 570000        # fila final
+start_row = 570001           # fila inicial (1 = primera fila de datos, sin contar cabecera)
+end_row   = 600000        # fila final
 
 engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
 
