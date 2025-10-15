@@ -18,7 +18,7 @@
 <body class="bg-light">
 
 <div class="container py-4">
-  <h1 class="mb-4">Selecciona el Puzzle y trata de resolverlo</h1>
+  <h1 class="mb-4">Chess Puzzle</h1>
 
   <!-- Filtros -->
   <div class="row mb-3">
@@ -34,7 +34,6 @@
       <label for="mateFilter" class="form-label">Mate En</label>
       <select id="mateFilter" class="form-select">
         <option value="">Todos</option>
-        <option value="1">1</option>
         <option value="2">2</option>
         <option value="3">3</option>
         <option value="4">4</option>
@@ -54,7 +53,7 @@
       <tr>
         <th>#</th>
         <th class="d-none d-md-table-cell">FEN</th>
-        <th>MeteEn</th>
+        <th>Mate En</th>
         <th>Ganador</th>
         <th>Ver</th>
       </tr>
@@ -82,6 +81,11 @@
       <li class="page-item"><a class="page-link" href="#" id="nextPage">Siguiente</a></li>
     </ul>
   </nav>
+
+  <footer class="text-center small text-muted py-2 mt-4">
+    <div>Los Vilos, Regi&oacute;n de Coquimbo, Chile</div>
+    <div>Creado por VitoskyCL, Powered by ChatGPT, 2025</div>
+  </footer>
 </div>
 
 <!-- Modal -->
@@ -106,7 +110,7 @@
           </div>
         </div>
         <p class="mt-3">
-          Mate en&nbsp;<strong><span id="mateIn"></span></strong>,&nbsp;mueven las&nbsp;<strong><span id="sideToMove"></span></strong>,&nbsp;pero ganan las&nbsp;<strong><span id="gananId"></span></strong>   
+          Mate en&nbsp;<strong><span id="mateIn"></span></strong>,&nbsp;ganan las&nbsp;<strong><span id="gananId"></span></strong>   
         </p>
         <button class="btn btn-sm btn-outline-primary" id="toggleMoves">👁️ Mostrar movimientos</button>
         <p class="mt-3 d-none" id="movesContainer">

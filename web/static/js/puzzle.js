@@ -291,7 +291,7 @@ function showFen(winnerColor, fen, moves, mateIn, btn) {
 
   let sideToMove = fen.split(" ")[1] === "w" ? "Blancas" : "Negras";
   let textoGanan = (winnerColor === "Black" ? "Negras" : "Blancas");
-  document.getElementById("sideToMove").textContent = sideToMove;
+  //document.getElementById("sideToMove").textContent = sideToMove;
   document.getElementById("mateIn").textContent = mateIn;
   document.getElementById("moves").textContent = moves;
   document.getElementById("gananId").textContent = textoGanan;

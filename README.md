@@ -1,4 +1,4 @@
-# Chess Puzzle Viewer
+# Chess Puzzle
 
 Un proyecto educativo para generar una base de datos de puzzles de ajedrez a partir de FENs, usando Stockfish y Python, y visualizarlos en una aplicación web.
 
