@@ -122,7 +122,7 @@
     <thead class="table-dark">
       <tr>
         <th>#</th>
-        <th>FEN</th>
+        <th class="d-none d-md-table-cell">FEN</th>
         <th>MeteEn</th>
         <th>Ganador</th>
         <th>Ver</th>
@@ -185,6 +185,33 @@
     </div>
   </div>
 </div>
+<!-- Modal de Promoción -->
+<div class="modal fade" id="promotionModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content text-center">
+      <div class="modal-header">
+        <h5 class="modal-title">Promocionar a</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-around">
+          <button class="btn btn-outline-light promo-btn" data-piece="q">
+            <img src="img/chesspieces/wikipedia/wQ.png" width="40" height="40">
+          </button>
+          <button class="btn btn-outline-light promo-btn" data-piece="r">
+            <img src="img/chesspieces/wikipedia/wR.png" width="40" height="40">
+          </button>
+          <button class="btn btn-outline-light promo-btn" data-piece="b">
+            <img src="img/chesspieces/wikipedia/wB.png" width="40" height="40">
+          </button>
+          <button class="btn btn-outline-light promo-btn" data-piece="n">
+            <img src="img/chesspieces/wikipedia/wN.png" width="40" height="40">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 let data = [];
@@ -195,6 +222,10 @@ let highlightedRow = null;
 // Nuevas variables globales:
 let game = null;
 let board = null;
+let pendingPromotion = null; // { from, to, expectedPromotion, btn }
+let moveIndex = 0;  // ahora global, visible desde el manejador del modal
+let moveList = [];  // también global
+let currentFen = null;
 
 async function loadData() {
   try {
@@ -206,6 +237,66 @@ async function loadData() {
     console.error("Error cargando JSON:", e);
     document.getElementById("pageInfo").textContent = "Error al cargar los datos.";
   }
+}
+function resetPuzzle() {
+  if (!game || !board || !currentFen) return;
+  game = new Chess(currentFen);
+  moveIndex = 0;
+  board.position(currentFen);
+  highlightKingInCheck(currentFen);
+  showErrorMessage("❌ Incorrecto. Puzzle reiniciado.");
+}
+function updateProgress(percent) {
+  const progressBar = document.getElementById("progressBar");
+  if (!progressBar) return;
+
+  const isMobile = window.innerWidth < 768;
+  if (isMobile) {
+    progressBar.style.width = percent + "%";
+    progressBar.style.height = "100%";
+  } else {
+    progressBar.style.height = percent + "%";
+    progressBar.style.width = "100%";
+  }
+}
+
+// Función para ejecutar el movimiento (después de tener la promoción)
+function executeMoveWithPromotion(from, to, promotion, expected) {
+  // intenta mover con la promoción indicada
+  const moveObj = game.move({ from, to, promotion: promotion });
+  if (!moveObj) {
+    // movimiento ilegal — revertir y reiniciar puzzle
+    showErrorMessage("Movimiento ilegal. Intento inválido.");
+    board.position(game.fen()); // asegura que el tablero vuelva al estado del juego
+    return false;
+  }
+
+  // si fue correcto, actualizamos estado del puzzle (moveIndex, progreso, etc.)
+  moveIndex++;
+  highlightKingInCheck(game.fen());
+
+  const progressPercent = Math.round((moveIndex / moveList.length) * 100);
+  const progressBar = document.getElementById("progressBar");
+  const isMobile = window.innerWidth < 768;
+  if (isMobile) {
+    progressBar.style.width = progressPercent + "%";
+    progressBar.style.height = "100%";
+  } else {
+    progressBar.style.height = progressPercent + "%";
+    progressBar.style.width = "100%";
+  }
+
+  if (moveIndex >= moveList.length) {
+    setTimeout(() => {
+      if (isMobile) {
+        progressBar.style.width = "100%";
+      } else {
+        progressBar.style.height = "100%";
+      }
+      showSuccessMessage("🎉 ¡Puzzle completado!");
+    }, 300);
+  }
+  return true;
 }
 function showSuccessMessage(msg) {
   const alert = document.createElement("div");
@@ -260,7 +351,7 @@ function renderTable() {
     let tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${start + index + 1}</td>
-      <td>${row.FEN}</td>
+      <td class="d-none d-md-table-cell">${row.FEN}</td>
       <td>${row.MateIn}</td>
       <td>${(row.Winner === 'Black' ? 'Negras':'Blancas')}</td>
       <td><button class="btn btn-sm btn-primary" onclick="showFen('${row.Winner}', '${row.FEN}', '${row.Moves.replace(/'/g, "\\'")}', '${row.MateIn}', this)">👁️</button></td>
@@ -314,17 +405,9 @@ function showFen(winnerColor, fen, moves, mateIn, btn) {
 
   // Variables globales
   game = new Chess(fen);
-  const moveList = moves.trim().split(/\s+/); // ej: ["a5b5", "a8a7", ...]
-  let moveIndex = 0;
-
-  // Función auxiliar para reiniciar puzzle
-  function resetPuzzle() {
-    game = new Chess(fen);
-    moveIndex = 0;
-    board.position(fen);
-    highlightKingInCheck(fen);
-    showErrorMessage("❌ Incorrecto. Puzzle reiniciado.");
-  }
+  currentFen = fen; // guarda la FEN activa globalmente
+  moveList = moves.trim().split(/\s+/);
+  moveIndex = 0;
 
   // Reiniciar barra de progreso cada vez que se abre un nuevo puzzle
 const progressBar = document.getElementById("progressBar");
@@ -350,45 +433,51 @@ if (progressBar) {
       }
     },
     onDrop: (source, target) => {
-   const expected = moveList[moveIndex];
-  const userMove = source + target;
-  const progressBar = document.getElementById("progressBar");
+  const expected = moveList[moveIndex];
+  const piece = game.get(source);
+  let expectedPromotion = expected.length === 5 ? expected[4] : null;
+  let promotionNeeded = false;
 
-  const updateProgress = (percent) => {
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      progressBar.style.width = percent + "%";
-      progressBar.style.height = "100%";
-    } else {
-      progressBar.style.height = percent + "%";
-      progressBar.style.width = "100%";
+  // Detectar si es peón llegando a la última fila
+  if (piece && piece.type === 'p') {
+    const rank = target[1];
+    if ((piece.color === 'w' && rank === '8') || (piece.color === 'b' && rank === '1')) {
+      promotionNeeded = true;
     }
-  };
+  }
 
-  const resetProgress = () => updateProgress(0);
+  // Si el movimiento requiere promoción
+  if (promotionNeeded) {
+    pendingPromotion = { source, target, expected, expectedPromotion, color: piece.color };
+    const promoModalEl = document.getElementById("promotionModal");
 
-  if (userMove === expected) {
-    const move = game.move({ from: source, to: target, promotion: 'q' });
-    moveIndex++;
-    highlightKingInCheck(game.fen());
+    // Cambiar imágenes según color del peón
+    document.querySelectorAll('.promo-btn img').forEach(img => {
+      const pieceType = img.parentElement.dataset.piece.toUpperCase();
+      img.src = `img/chesspieces/wikipedia/${piece.color}${pieceType}.png`;
+    });
 
-    const progressPercent = Math.round((moveIndex / moveList.length) * 100);
-    updateProgress(progressPercent);
-
-    if (moveIndex >= moveList.length) {
-      setTimeout(() => {
-        updateProgress(100);
-        showSuccessMessage("🎉 ¡Puzzle completado!");
-      }, 300);
-    }
-  } else {
-    setTimeout(() => {
-      resetPuzzle();
-      resetProgress();
-    }, 300);
+    const promoModal = new bootstrap.Modal(promoModalEl);
+    promoModal.show();
     return 'snapback';
   }
-    },
+
+  // Movimiento normal (sin promoción)
+  const userMove = source + target + (expectedPromotion || "");
+  if (userMove === expected) {
+    const move = game.move({ from: source, to: target, promotion: expectedPromotion || 'q' });
+    if (!move) return 'snapback';
+    
+    moveIndex++;
+    highlightKingInCheck(game.fen());
+    const percent = Math.round((moveIndex / moveList.length) * 100);
+    updateProgress(percent);
+    if (moveIndex >= moveList.length) showSuccessMessage("🎉 ¡Puzzle completado!");
+  } else {
+    setTimeout(() => { resetPuzzle(); updateProgress(0); }, 300);
+    return 'snapback';
+  }
+},
     onSnapEnd: () => board.position(game.fen())
   });
 
@@ -402,6 +491,10 @@ if (progressBar) {
   document.getElementById("moves").textContent = moves;
   document.getElementById("gananId").textContent = textoGanan;
   document.getElementById("movesContainer").classList.add("d-none");
+
+  if (sideToMove === textoGanan){
+    document.getElementById("gananId").textContent = (sideToMove === 'Negras' ? 'Blancas' : 'Negras');
+  }
 
   let toggleBtn = document.getElementById("toggleMoves");
   toggleBtn.textContent = "👁️ Mostrar movimientos";
@@ -437,6 +530,34 @@ document.getElementById("rowsPerPageSelect").addEventListener("change", e => {
   currentPage = 1;
   renderTable();
 });
+
+document.querySelectorAll('.promo-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    const promo = e.currentTarget.dataset.piece;
+    const modal = bootstrap.Modal.getInstance(document.getElementById("promotionModal"));
+    modal.hide();
+
+    if (!pendingPromotion) return;
+    const { source, target, expected, expectedPromotion } = pendingPromotion;
+    pendingPromotion = null;
+
+    const userMove = source + target + promo;
+    if (userMove === expected) {
+      const move = game.move({ from: source, to: target, promotion: promo });
+      if (!move) return;
+      board.position(game.fen());
+      highlightKingInCheck(game.fen());
+
+      moveIndex++;
+      const percent = Math.round((moveIndex / moveList.length) * 100);
+      updateProgress(percent);
+      if (moveIndex >= moveList.length) showSuccessMessage("🎉 ¡Puzzle completado!");
+    } else {
+      setTimeout(() => { resetPuzzle(); updateProgress(0); }, 300);
+    }
+  });
+});
+
 
 loadData();
 </script>
