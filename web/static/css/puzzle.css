@@ -1,0 +1,68 @@
+/* Tablero adaptable */
+#board {
+  width: min(90vw, 400px);
+  max-width: 400px;
+}
+
+/* En pantallas grandes: tablero y barra al lado */
+@media (min-width: 768px) {
+  .board-wrapper {
+    flex-direction: row !important;
+  }
+
+  .progress-container {
+    height: 400px !important;
+    width: 25px !important;
+  }
+
+  .progress-container .progress {
+    rotate: 180deg;
+    width: 100%;
+    height: 100%;
+  }
+
+  .progress-container .progress-bar {
+    width: 100%;
+    height: 0%;
+    transition: height 0.3s;
+  }
+}
+
+/* En pantallas pequeñas: tablero arriba, barra horizontal abajo */
+@media (max-width: 767px) {
+  .board-wrapper {
+    flex-direction: column !important;
+  }
+
+  .progress-container {
+    height: 25px !important;
+    width: 90% !important;
+    rotate: 0deg !important;
+  }
+
+  .progress-container .progress {
+    rotate: 0deg !important;
+    width: 100%;
+    height: 100%;
+  }
+
+  .progress-container .progress-bar {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s;
+  }
+}
+    .btn { margin: 2px; }
+    .white-1e1d7 { background-color: #eeeed2 !important; }
+    .black-3c85d { background-color: #769656 !important; }
+    tr.table-active td { background-color: #b8daff !important; }
+    .square-in-check {
+  box-shadow: inset 0 0 0 4px red !important;
+}
+  .piece-417db {
+    z-index: 2000 !important; /* asegura que las piezas se vean encima */
+    cursor: grab;
+  }
+  .piece-417db.dragging {
+    opacity: 0.8;
+  }
